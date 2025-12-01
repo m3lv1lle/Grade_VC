@@ -99,55 +99,25 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
     res.json(result.rows[0]);
 });
 
-// --- Routes: Grades ---
-app.get('/api/grades', authenticateToken, async (req, res) => {
-  const result = await pool.query('SELECT * FROM grades WHERE user_id = $1 ORDER BY date DESC', [req.user.id]);
-  const grades = result.rows.map(r => ({
-    id: r.id,
-    subject: r.subject,
-    name: r.name,
-    score: r.score,
-    semester: r.semester,
-    type: r.type,
-    date: r.date,
-    attachment: r.attachment,
-    attachmentType: r.attachment_type,
-    fileName: r.file_name
-  }));
-  res.json(grades);
+// NEU: Einstellungen speichern
+app.put('/api/auth/me', authenticateToken, async (req, res) => {
+  const { preferences } = req.body;
+  try {
+    await pool.query('UPDATE users SET preferences = $1 WHERE id = $2', [preferences, req.user.id]);
+    res.json({ success: true, preferences });
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to update preferences' });
+  }
 });
 
-app.post('/api/grades', authenticateToken, async (req, res) => {
-  const { subject, name, score, semester, type, date, attachment, attachmentType, fileName } = req.body;
-  const result = await pool.query(
-    `INSERT INTO grades (user_id, subject, name, score, semester, type, date, attachment, attachment_type, file_name)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
-    [req.user.id, subject, name, score, semester, type, date, attachment, attachmentType, fileName]
-  );
-  res.json({ id: result.rows[0].id, ...req.body });
+// NEU: Benutzer löschen
+app.delete('/api/auth/me', authenticateToken, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM users WHERE id = $1', [req.user.id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to delete user' });
+  }
 });
 
-app.put('/api/grades/:id', authenticateToken, async (req, res) => {
-  const { id } = req.params;
-  const { subject, name, score, semester, type, date, attachment, attachmentType, fileName } = req.body;
-  await pool.query(
-    `UPDATE grades SET subject=$1, name=$2, score=$3, semester=$4, type=$5, date=$6, attachment=$7, attachment_type=$8, file_name=$9
-     WHERE id=$10 AND user_id=$11`,
-    [subject, name, score, semester, type, date, attachment, attachmentType, fileName, id, req.user.id]
-  );
-  res.json({ id: Number(id), ...req.body });
-});
-
-app.delete('/api/grades/:id', authenticateToken, async (req, res) => {
-  await pool.query('DELETE FROM grades WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
-  res.json({ success: true });
-});
-
-// Start Server
-app.listen(PORT, async () => {
-  // Wait a moment for DB to be ready in Docker environment
-  setTimeout(async () => {
-    await initDb();
-    console.log(`Server running on port ${PORT}`);
-  }, 2000);
-});
+// ... existing code (Grades Routes) ...
