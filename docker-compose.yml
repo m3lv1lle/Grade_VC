@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # 1. Database (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: securepassword123
+      POSTGRES_DB: gradetracker
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  # 2. Backend API (Node.js)
+  backend:
+    build: ./backend
+    restart: always
+    environment:
+      # Connects to the 'db' service defined above
+      DATABASE_URL: postgres://user:securepassword123@db:5432/gradetracker
+      JWT_SECRET: mysecretkey123
+      PORT: 3000
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+  # 3. Frontend (React + Nginx)
+  frontend:
+    build: ./frontend
+    restart: always
+    ports:
+      - "80:80"  # Maps port 80 on your Mac to port 80 in the container
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
